@@ -1,0 +1,58 @@
+# config/dev.yaml
+# Health checker configuration for the dev environment
+
+project_name: self-healing-infra
+environment: dev
+aws_region: us-east-1
+
+# HTTP endpoints to check
+endpoints:
+  - name: alb-health
+    url: http://${ALB_DNS_NAME}/health
+    expected_status: 200
+    expected_body_contains: "healthy"
+    timeout: 10
+
+  - name: alb-root
+    url: http://${ALB_DNS_NAME}/
+    expected_status: 200
+    timeout: 5
+
+# Auto Scaling Groups to monitor
+asg_names:
+  - self-healing-infra-asg-dev
+
+# ALB Target Groups (ARNs)
+target_group_arns: []  # populated by Terraform output
+
+# RDS instances to monitor (leave empty if no RDS)
+rds_identifiers: []
+
+# Health check thresholds
+thresholds:
+  response_time_warn_ms: 2000     # Warn if response > 2s
+  response_time_critical_ms: 5000 # Critical if response > 5s
+  healthy_host_minimum: 2         # Alert if fewer than N healthy hosts
+
+# Healing configuration
+healing:
+  dry_run: false
+  restart_service_name: app
+  scale_up_increment: 1
+  max_restart_attempts: 2
+  cooldown_minutes: 5  # Don't re-heal same resource within this window
+
+# Alerting
+alerting:
+  slack_webhook_ssm: /self-healing-infra/dev/slack-webhook-url
+  sns_topic_arn: ${SNS_TOPIC_ARN}
+  alert_on_degraded: true
+  alert_on_unhealthy: true
+  resolve_alert: true  # Send "resolved" when healthy again
+
+# Logging
+logging:
+  level: INFO
+  s3_bucket: ${LOGS_BUCKET}
+  s3_prefix: health-checks/dev/
+  cloudwatch_log_group: /self-healing-infra/dev/health-checker

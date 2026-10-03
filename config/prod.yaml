@@ -1,0 +1,64 @@
+# config/prod.yaml
+# Production health checker configuration
+# Secrets are stored in SSM Parameter Store — never in this file
+
+project_name: self-healing-infra
+environment: prod
+aws_region: us-east-1
+
+endpoints:
+  - name: alb-health
+    url: http://${ALB_DNS_NAME}/health
+    expected_status: 200
+    expected_body_contains: "healthy"
+    timeout_seconds: 10
+    enabled: true
+
+  - name: alb-root
+    url: http://${ALB_DNS_NAME}/
+    method: HEAD
+    expected_status: 200
+    timeout_seconds: 5
+    enabled: true
+
+asg_names:
+  - self-healing-infra-asg-prod
+
+target_group_arns: []   # Populated by Terraform output
+
+rds_identifiers:
+  - self-healing-infra-db-prod
+
+thresholds:
+  response_time_warn_ms: 1000
+  response_time_critical_ms: 3000
+  healthy_host_minimum: 2
+  consecutive_failures_before_heal: 3   # Stricter in prod to avoid false heals
+  heal_cooldown_minutes: 10
+  max_heals_per_hour: 5
+
+healing:
+  dry_run: false
+  restart_service_name: app
+  scale_up_increment: 2
+  max_restart_attempts: 2
+  enable_rds_failover: true
+  enable_instance_replacement: true
+  enable_scale_up: true
+  idempotency_table: self-healing-infra-idempotency-prod
+
+alerting:
+  slack_webhook_ssm_path: /self-healing-infra/prod/slack-webhook-url
+  pagerduty_key_ssm_path: /self-healing-infra/prod/pagerduty-key
+  sns_topic_arn: ${SNS_TOPIC_ARN}
+  alert_on_degraded: true
+  alert_on_unhealthy: true
+  send_resolve_alert: true
+  suppress_duplicate_minutes: 30
+
+logging:
+  level: INFO
+  s3_bucket: ${LOGS_BUCKET}
+  s3_prefix: logs/prod
+  cloudwatch_log_group: /self-healing-infra/prod/health-checker
+  json_format: true

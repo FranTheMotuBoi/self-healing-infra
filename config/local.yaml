@@ -1,0 +1,64 @@
+# config/local.yaml
+# Local development — no AWS credentials needed for HTTP checks
+# Run: python -m src.health_checker.main --config config/local.yaml --once
+
+project_name: self-healing-infra
+environment: local
+aws_region: us-east-1
+
+endpoints:
+  - name: google-test
+    url: https://www.google.com
+    expected_status: 200
+    timeout_seconds: 10
+    enabled: true
+
+  - name: dead-server
+    url: http://localhost:9999/health
+    expected_status: 200
+    timeout_seconds: 3
+    enabled: true
+
+  - name: wrong-status
+    url: https://httpbin.org/status/500
+    expected_status: 200
+    timeout_seconds: 10
+    enabled: true
+
+  - name: body-check-fail
+    url: https://www.google.com
+    expected_status: 200
+    expected_body_contains: "definitely-not-in-page"
+    timeout_seconds: 10
+    enabled: true
+
+  - name: slow-endpoint
+    url: https://httpbin.org/delay/6
+    expected_status: 200
+    timeout_seconds: 15
+    enabled: true
+
+asg_names: []
+target_group_arns: []
+rds_identifiers: []
+
+thresholds:
+  response_time_warn_ms: 2000
+  response_time_critical_ms: 5000
+  healthy_host_minimum: 1
+  consecutive_failures_before_heal: 1
+  heal_cooldown_minutes: 1
+  max_heals_per_hour: 10
+
+healing:
+  dry_run: true
+  restart_service_name: app
+  scale_up_increment: 1
+
+alerting:
+  alert_on_degraded: true
+  alert_on_unhealthy: true
+
+logging:
+  level: INFO
+  json_format: false
